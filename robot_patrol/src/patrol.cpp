@@ -12,6 +12,9 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <chrono>
 #include <iostream>
+#include "rclcpp/timer.hpp"
+#include <unistd.h>
+
 
 using namespace std::chrono_literals;
 
@@ -22,7 +25,7 @@ class Patrol: public rclcpp::Node
         {
             laser_scan_subscriber = this->create_subscription<sensor_msgs::msg::LaserScan>("/scan", 10, std::bind(&Patrol::laser_scan_callback, this, std::placeholders::_1));
             vel_publisher = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 1);
-            callback_timer = this->create_wall_timer(500ms, std::bind(&Patrol::publisher_callback, this));
+            callback_timer = this->create_wall_timer(10ms, std::bind(&Patrol::publisher_callback, this));
 
             RCLCPP_INFO(this->get_logger(), "robot patrol node started...");
         }
@@ -34,40 +37,53 @@ class Patrol: public rclcpp::Node
         {
             laser_scan_msg = msg;
             direction_ = this->get_angle();
-            RCLCPP_INFO(this->get_logger(), "direction: %f", direction_);
+            float degrees = direction_ * (180.0 / M_PI);
+            
+            //printing- angle to be rotated
+            RCLCPP_INFO(this->get_logger(), "angle: %f", degrees);
+
+            //updating the vel_data
+            vel_data.linear.x = 0.1;
+            vel_data.angular.z = direction_/2;
         }
+
 
 
         //method to calculate angle for maximum distance
         float get_angle()
         {
-            float max_angle = laser_scan_msg->ranges[0];
-            int max_angle_index = 0;
+            float max_range = 0.0;
+            int max_range_index = 0;
             float angle;
 
             //finding the index for the maximum distance
-            for (int i= 0; i< 360; i++)
+            for (int i= 180; i< 540; i++)
             {
-                if (!std::isinf(laser_scan_msg->ranges[i]) && max_angle < (laser_scan_msg->ranges[i]) )
+
+                if (!std::isinf(laser_scan_msg->ranges[i]) && laser_scan_msg->ranges[359]>0.6)
                 {
-                    max_angle = laser_scan_msg->ranges[i];
-                    max_angle_index = i;
+                    if(max_range <= (laser_scan_msg->ranges[i]))
+                    {
+                        max_range = laser_scan_msg->ranges[i];
+                        max_range_index = i;
+                        
+                    }
                 }
             }
-            
-            angle =  (max_angle_index * (laser_scan_msg->angle_increment)) - (M_PI_2);
+            //calculating the angle
+            angle = laser_scan_msg->angle_min + (max_range_index * (laser_scan_msg->angle_increment));
 
             return angle;
         }
 
 
+
+
         //timer callback method to publish the velocity
         void publisher_callback()
         {
-            vel_data.linear.x = 0.1;
-            vel_data.angular.z = direction_/2;
             vel_publisher->publish(vel_data);
-            RCLCPP_INFO(this->get_logger(), "inside publisher callback method");
+           
         }
 
 
