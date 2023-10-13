@@ -25,7 +25,7 @@ class Patrol: public rclcpp::Node
         {
             laser_scan_subscriber = this->create_subscription<sensor_msgs::msg::LaserScan>("/scan", 10, std::bind(&Patrol::laser_scan_callback, this, std::placeholders::_1));
             vel_publisher = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 1);
-            callback_timer = this->create_wall_timer(10ms, std::bind(&Patrol::publisher_callback, this));
+            callback_timer = this->create_wall_timer(100ms, std::bind(&Patrol::publisher_callback, this));
 
             RCLCPP_INFO(this->get_logger(), "robot patrol node started...");
         }
@@ -41,8 +41,6 @@ class Patrol: public rclcpp::Node
             
             //printing- direction_ to be rotated
             RCLCPP_INFO(this->get_logger(), "direction_: %f", degrees);
-
-            
         }
 
 
@@ -52,7 +50,8 @@ class Patrol: public rclcpp::Node
         {
             float max_range = 0.0;
             int max_range_index = 0;
-            float direction_;
+            float distance_threshold = 0.5;
+            float delta_angle = 20;
 
             //finding the index for the maximum distance
             for (int i= 180; i< 540; i++)
@@ -64,33 +63,26 @@ class Patrol: public rclcpp::Node
                     {
                         max_range = laser_scan_msg->ranges[i];
                         max_range_index = i;
-                        
                     }
                 }
             }
             
-            
-            
             //calculating the direction_
             direction_ = laser_scan_msg->angle_min + (max_range_index * (laser_scan_msg->angle_increment));
 
-            float distance_threshold = 0.3;
             //updating the velocity
             vel_data.linear.x = 0.1;
-            if (laser_scan_msg->ranges[329]<distance_threshold || laser_scan_msg->ranges[299]<distance_threshold || laser_scan_msg->ranges[269]<distance_threshold)
+            if (laser_scan_msg->ranges[360-delta_angle]<distance_threshold || laser_scan_msg->ranges[360 - 2*delta_angle]<distance_threshold || laser_scan_msg->ranges[360 - 3*delta_angle]<distance_threshold  || laser_scan_msg->ranges[360 - 4*delta_angle]<distance_threshold)
             {
-                //el_data.linear.x =0;
-                direction_ +=10;
+                direction_ *= -3;
             }
             
-            if (laser_scan_msg->ranges[389]<distance_threshold || laser_scan_msg->ranges[329]<distance_threshold || laser_scan_msg->ranges[419]<distance_threshold)
+            if (laser_scan_msg->ranges[360+delta_angle]<distance_threshold || laser_scan_msg->ranges[360 + 2*delta_angle]<distance_threshold || laser_scan_msg->ranges[360 + 3*delta_angle]<distance_threshold || laser_scan_msg->ranges[360 + 4*delta_angle]<distance_threshold)
             {
-                vel_data.linear.x =0;
-                direction_ -=10;
+                direction_ *= -3;
             }
 
             vel_data.angular.z = direction_/2;
-
         }
 
 
@@ -100,7 +92,6 @@ class Patrol: public rclcpp::Node
         void publisher_callback()
         {
             vel_publisher->publish(vel_data);
-           
         }
 
 
