@@ -7,6 +7,7 @@
 #include "rclcpp/utilities.hpp"
 #include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
 #include <cmath>
+#include <exception>
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
@@ -25,7 +26,7 @@ class Patrol: public rclcpp::Node
         {
             laser_scan_subscriber = this->create_subscription<sensor_msgs::msg::LaserScan>("/scan", 10, std::bind(&Patrol::laser_scan_callback, this, std::placeholders::_1));
             vel_publisher = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 1);
-            callback_timer = this->create_wall_timer(10ms, std::bind(&Patrol::publisher_callback, this));
+            callback_timer = this->create_wall_timer(100ms, std::bind(&Patrol::publisher_callback, this));
 
             RCLCPP_INFO(this->get_logger(), "robot patrol node started...");
         }
@@ -50,39 +51,59 @@ class Patrol: public rclcpp::Node
         {
             float max_avg_range = 0.0;
             int max_range_index = -1;
-            int scan_range_width= 120;       
+            int scan_range_width= 120;      
+            bool chance_edge_present = false; 
+            float threshold_diff = 0.3;
+            float previous_j_range = 0.0, current_j_range;
             //int search_width = 60;
 
             direction_ = 0;
 
-            if (laser_scan_msg->ranges[359]<0.4)
+            //finding the index for the maximum distance
+            for (int i= 180; i< 540; i= i + scan_range_width)
             {
-
-                //finding the index for the maximum distance
-                for (int i= 180; i< 540; i= i + scan_range_width)
+                float sum = 0.0;
+                float avg_sum = 0.0;
+                if(!std::isinf(laser_scan_msg->ranges[i]))
                 {
-                    float sum = 0.0;
-                    float avg_sum = 0.0;
-                    for(int j = i; j<(i+scan_range_width); j=j+5)
+                    previous_j_range = laser_scan_msg->ranges[i];
+                }
+                else 
+                {
+                    previous_j_range = 0.0;
+                }
+
+                for(int j = i+1; j<(i+scan_range_width); j=j+4)
+                {
+                    if(!std::isinf(laser_scan_msg->ranges[j]))
                     {
-                        if(!std::isinf(laser_scan_msg->ranges[j]))
+                        current_j_range = laser_scan_msg->ranges[j];
+                        sum += current_j_range;
+                        if((current_j_range - previous_j_range)>threshold_diff)
                         {
-                            sum += laser_scan_msg->ranges[j];
+                            chance_edge_present = true;
+                            break;
                         }
                     }
-
-                    avg_sum = sum;
-                    
-                    if(max_avg_range < avg_sum)
-                    {
-                        max_avg_range = avg_sum;
-                        max_range_index = i + int(scan_range_width/2);
-                    }
-                    
                 }
-                //calculating the angle
-                direction_ = laser_scan_msg->angle_min + (max_range_index * (laser_scan_msg->angle_increment));
+
+                if (chance_edge_present)
+                {
+                    continue;
+                }
+
+                avg_sum = sum;
+                
+                if(max_avg_range < avg_sum)
+                {
+                    max_avg_range = avg_sum;
+                    max_range_index = i + int(scan_range_width/2);
+                }
+                
             }
+            //calculating the angle
+            direction_ = laser_scan_msg->angle_min + (max_range_index * (laser_scan_msg->angle_increment));
+            
         }
 
 
