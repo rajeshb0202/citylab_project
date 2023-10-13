@@ -36,31 +36,29 @@ class Patrol: public rclcpp::Node
         void laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
         {
             laser_scan_msg = msg;
-            direction_ = this->get_angle();
+            this->get_direction_();
             float degrees = direction_ * (180.0 / M_PI);
             
-            //printing- angle to be rotated
-            RCLCPP_INFO(this->get_logger(), "angle: %f", degrees);
+            //printing- direction_ to be rotated
+            RCLCPP_INFO(this->get_logger(), "direction_: %f", degrees);
 
-            //updating the vel_data
-            vel_data.linear.x = 0.1;
-            vel_data.angular.z = direction_/2;
+            
         }
 
 
 
-        //method to calculate angle for maximum distance
-        float get_angle()
+        //method to calculate direction_ for maximum distance
+        void get_direction_()
         {
             float max_range = 0.0;
             int max_range_index = 0;
-            float angle;
+            float direction_;
 
             //finding the index for the maximum distance
             for (int i= 180; i< 540; i++)
             {
 
-                if (!std::isinf(laser_scan_msg->ranges[i]) && laser_scan_msg->ranges[359]>0.6)
+                if (!std::isinf(laser_scan_msg->ranges[i]))
                 {
                     if(max_range <= (laser_scan_msg->ranges[i]))
                     {
@@ -70,10 +68,29 @@ class Patrol: public rclcpp::Node
                     }
                 }
             }
-            //calculating the angle
-            angle = laser_scan_msg->angle_min + (max_range_index * (laser_scan_msg->angle_increment));
+            
+            
+            
+            //calculating the direction_
+            direction_ = laser_scan_msg->angle_min + (max_range_index * (laser_scan_msg->angle_increment));
 
-            return angle;
+            float distance_threshold = 0.3;
+            //updating the velocity
+            vel_data.linear.x = 0.1;
+            if (laser_scan_msg->ranges[329]<distance_threshold || laser_scan_msg->ranges[299]<distance_threshold || laser_scan_msg->ranges[269]<distance_threshold)
+            {
+                //el_data.linear.x =0;
+                direction_ +=10;
+            }
+            
+            if (laser_scan_msg->ranges[389]<distance_threshold || laser_scan_msg->ranges[329]<distance_threshold || laser_scan_msg->ranges[419]<distance_threshold)
+            {
+                vel_data.linear.x =0;
+                direction_ -=10;
+            }
+
+            vel_data.angular.z = direction_/2;
+
         }
 
 
