@@ -79,14 +79,14 @@ class Patrol: public rclcpp::Node
             vel_data.linear.x = 0.1;
             if (laser_scan_msg->ranges[329]<distance_threshold || laser_scan_msg->ranges[299]<distance_threshold || laser_scan_msg->ranges[269]<distance_threshold)
             {
-                //el_data.linear.x =0;
-                direction_ +=10;
+                //vel_data.linear.x =0;
+                direction_ +=2;
             }
             
             if (laser_scan_msg->ranges[389]<distance_threshold || laser_scan_msg->ranges[329]<distance_threshold || laser_scan_msg->ranges[419]<distance_threshold)
             {
-                vel_data.linear.x =0;
-                direction_ -=10;
+                //vel_data.linear.x =0;
+                direction_ -=2;
             }
 
             vel_data.angular.z = direction_/2;
