@@ -37,12 +37,6 @@ class Patrol: public rclcpp::Node
         {
             laser_scan_msg = msg;
             this->get_direction_();
-            float degrees = direction_ * (180.0 / M_PI);
-            
-            //printing- direction_ to be rotated
-            RCLCPP_INFO(this->get_logger(), "direction_: %f", degrees);
-
-            
         }
 
 
@@ -52,45 +46,41 @@ class Patrol: public rclcpp::Node
         {
             float max_range = 0.0;
             int max_range_index = 0;
-            float direction_;
 
             //finding the index for the maximum distance
             for (int i= 180; i< 540; i++)
             {
-
-                if (!std::isinf(laser_scan_msg->ranges[i]))
+                if ((!std::isinf(laser_scan_msg->ranges[i])) && (max_range <= (laser_scan_msg->ranges[i])))
                 {
-                    if(max_range <= (laser_scan_msg->ranges[i]))
+                    if(check_obstacles_around(i))
                     {
                         max_range = laser_scan_msg->ranges[i];
                         max_range_index = i;
-                        
                     }
                 }
             }
-            
-            
-            
             //calculating the direction_
-            direction_ = laser_scan_msg->angle_min + (max_range_index * (laser_scan_msg->angle_increment));
-
-            float distance_threshold = 0.3;
+            direction_ =  laser_scan_msg->angle_min + (max_range_index * (laser_scan_msg->angle_increment));
+        
             //updating the velocity
             vel_data.linear.x = 0.1;
-            if (laser_scan_msg->ranges[329]<distance_threshold || laser_scan_msg->ranges[299]<distance_threshold || laser_scan_msg->ranges[269]<distance_threshold)
-            {
-                //vel_data.linear.x =0;
-                direction_ +=2;
-            }
-            
-            if (laser_scan_msg->ranges[389]<distance_threshold || laser_scan_msg->ranges[329]<distance_threshold || laser_scan_msg->ranges[419]<distance_threshold)
-            {
-                //vel_data.linear.x =0;
-                direction_ -=2;
-            }
-
             vel_data.angular.z = direction_/2;
 
+        }
+
+        bool check_obstacles_around(int current_index)
+        {
+            int delta_angle = 90;
+            float gap_threshold = 0.4;
+            for(int j = current_index - delta_angle; j<current_index+delta_angle; j= j+2)
+            {
+                if (laser_scan_msg->ranges[j] < gap_threshold)
+                {
+                    RCLCPP_INFO(this->get_logger(), "%d", current_index);
+                    return false;
+                }
+            }
+            return true;
         }
 
 
