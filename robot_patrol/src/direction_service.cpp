@@ -25,33 +25,52 @@ class DirectionService: public rclcpp::Node
 
         void compute_direction_callback(const std::shared_ptr<CustomServiceMessage::Request> request, const std::shared_ptr<CustomServiceMessage::Response> response)
         {
-            float sum_left = 0, sum_front = 0, sum_right = 0;
-            
+            float total_dist_sec_left = 0, total_dist_sec_front = 0, total_dist_sec_right = 0;
+            float gap_threshold= 0.4;
+
             //Computing right sum
             for (int i = 180; i<300; i++)
             {
-                sum_right += request->laser_data.ranges[i];
+                total_dist_sec_right += request->laser_data.ranges[i];
+
+                /*adding a condition to check obstacle. if there is any obstacle, then thata section 
+                would be skipped.The skipping condition is done by zeroing the the total sum of that section.*/
+                if(request->laser_data.ranges[i]<gap_threshold)
+                {
+                    total_dist_sec_right = 0;
+                    break;
+                }
             }
 
             //Computing front sum
             for (int i = 300; i<420; i++)
             {
-                sum_front += request->laser_data.ranges[i];
+                total_dist_sec_front += request->laser_data.ranges[i];
+                if(request->laser_data.ranges[i]<gap_threshold)
+                {
+                    total_dist_sec_front = 0;
+                    break;
+                }
             }
 
             //Computing left sum
             for (int i = 420; i<540; i++)
             {
-                sum_left += request->laser_data.ranges[i];
+                total_dist_sec_left += request->laser_data.ranges[i];
+                if(request->laser_data.ranges[i]<gap_threshold)
+                {
+                    total_dist_sec_left = 0;
+                    break;
+                }
             }
 
 
             //Deciding the response i.e. direction based upon the higher sum
-            if (sum_right >= sum_front && sum_right >= sum_left)
+            if (total_dist_sec_right >= total_dist_sec_front && total_dist_sec_right >= total_dist_sec_left)
             {
                 response->direction = "right";
             }
-            else if (sum_front >= sum_right && sum_front >= sum_left)
+            else if (total_dist_sec_front >= total_dist_sec_right && total_dist_sec_front >= total_dist_sec_left)
             {
                 response->direction = "front";
             }

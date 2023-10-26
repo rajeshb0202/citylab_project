@@ -64,7 +64,8 @@ class Patrol: public rclcpp::Node
             try {
                 auto result = future.get();
                 direction = result->direction;
-                RCLCPP_INFO(this->get_logger(), "Service returned: %s", direction.c_str());
+                //for debug putpose, printing the direction.
+                //RCLCPP_INFO(this->get_logger(), "Service returned: %s", direction.c_str());
             } 
             catch (const std::exception &e) 
             {
