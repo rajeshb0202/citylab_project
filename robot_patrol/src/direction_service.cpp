@@ -38,6 +38,7 @@ class DirectionService: public rclcpp::Node
                 if (request->laser_data.ranges[i]< gap_threshold)
                 {
                     chances_obstacles_present = true;
+                    break;
                 }
             }
 
